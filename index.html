@@ -1,0 +1,327 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muhasabah Diri - Jurnal Refleksi Harian</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-effect { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        .premium-locked { position: relative; overflow: hidden; }
+        .premium-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 10; backdrop-filter: blur(4px);
+        }
+        .mood-btn { transition: all 0.2s ease; }
+        .mood-btn.active { background-color: #d1fae5; transform: scale(1.2); border: 2px solid #10b981; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen pb-20">
+
+    <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-xl relative">
+        <!-- Header -->
+        <header class="p-6 bg-emerald-600 text-white rounded-b-3xl shadow-lg">
+            <h1 class="text-2xl font-bold">Muhasabah Diri</h1>
+            <p class="text-emerald-100 text-sm mt-1">Mulailah menatap diri, membangun diri, dan memulai sesuatu yang baik.</p>
+        </header>
+
+        <!-- Main Content -->
+        <main id="main-content" class="p-4">
+            <div id="loading" class="flex flex-col items-center justify-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+                <p class="mt-4 text-slate-500">Menyiapkan ruang tenang...</p>
+            </div>
+        </main>
+
+        <!-- Navigation Bar -->
+        <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-100 flex justify-around p-3 z-50">
+            <button onclick="router('home')" class="nav-item flex flex-col items-center text-emerald-600">
+                <i data-lucide="edit-3" class="w-6 h-6"></i>
+                <span class="text-xs mt-1 font-medium">Jurnal</span>
+            </button>
+            <button onclick="router('history')" class="nav-item flex flex-col items-center text-slate-400">
+                <i data-lucide="calendar" class="w-6 h-6"></i>
+                <span class="text-xs mt-1 font-medium">Riwayat</span>
+            </button>
+            <button onclick="router('premium')" class="nav-item flex flex-col items-center text-slate-400">
+                <i data-lucide="crown" class="w-6 h-6"></i>
+                <span class="text-xs mt-1 font-medium">Premium</span>
+            </button>
+        </nav>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Konfigurasi Firebase - Pastikan API Key benar dari Firebase Console
+        const firebaseConfig = {
+            apiKey: "DD_QyXg41TgJZ_PXKg7dtLeqqXJcQ", // <--- Pastikan kunci ini valid
+            authDomain: "muhasabah-diri-app.firebaseapp.com",
+            projectId: "muhasabah-diri-app",
+            storageBucket: "muhasabah-diri-app.firebasestorage.app",
+            messagingSenderId: "64363224108",
+            appId: "1:64363224108:web:609e0efca3d28d21734589"
+        };
+
+        let isPremium = false;
+        let db = null;
+        let auth = null;
+        let firebaseReady = false;
+
+        // Perbaikan: Penanganan Error API Key agar aplikasi tidak crash
+        const initFirebase = async () => {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                // Coba sign-in
+                await signInAnonymously(auth);
+                firebaseReady = true;
+                console.log("Firebase terhubung.");
+            } catch (error) {
+                console.error("Firebase Auth Error:", error.message);
+                console.warn("Aplikasi berjalan dalam Mode Lokal (Tanpa Cloud).");
+            }
+        };
+
+        initFirebase();
+
+        window.router = (path) => {
+            updateNavIcons(path);
+            switch(path) {
+                case 'home': renderJournalForm(); break;
+                case 'history': renderHistory(); break;
+                case 'premium': renderPremium(); break;
+                default: renderJournalForm();
+            }
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        function updateNavIcons(activePath) {
+            const items = document.querySelectorAll('.nav-item');
+            items.forEach(el => el.classList.replace('text-emerald-600', 'text-slate-400'));
+            if (activePath === 'home') items[0].classList.replace('text-slate-400', 'text-emerald-600');
+            else if (activePath === 'history') items[1].classList.replace('text-slate-400', 'text-emerald-600');
+            else if (activePath === 'premium') items[2].classList.replace('text-slate-400', 'text-emerald-600');
+        }
+
+        function renderJournalForm() {
+            const main = document.getElementById('main-content');
+            main.innerHTML = `
+                <div class="space-y-6 mb-10 animate-in fade-in duration-500">
+                    <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+                        <p class="text-sm text-emerald-800 italic text-center">"Barangsiapa yang hari ini lebih baik dari hari kemarin, maka ia termasuk orang yang beruntung."</p>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-slate-700 text-center">Bagaimana perasaanmu hari ini?</label>
+                        <div class="flex justify-between px-4">
+                            <button onclick="setMood('happy')" class="mood-btn p-3 rounded-full hover:bg-yellow-50 text-2xl" id="mood-happy">😊</button>
+                            <button onclick="setMood('sad')" class="mood-btn p-3 rounded-full hover:bg-blue-50 text-2xl" id="mood-sad">😢</button>
+                            <button onclick="setMood('angry')" class="mood-btn p-3 rounded-full hover:bg-red-50 text-2xl" id="mood-angry">😡</button>
+                            <button onclick="setMood('disappointed')" class="mood-btn p-3 rounded-full hover:bg-gray-50 text-2xl" id="mood-disappointed">😞</button>
+                        </div>
+                    </div>
+                    <div class="space-y-5">
+                        ${createInputField(1, "Apa yang ingin kamu lakukan hari ini agar Allah mencintaimu?", "text")}
+                        ${createInputField(2, "Apa yang sudah kamu lakukan hari ini agar Allah mencintaimu?", "text")}
+                        ${createInputField(3, "Hal buruk apa yang tidak jadi kamu lakukan hari ini agar Allah mencintaimu?", "text")}
+                        ${createInputField(4, "Kalimat motivasi versi kamu hari ini", "text")}
+                        ${createInputField(5, "Ayat Al-Qur'an yang membuatmu termotivasi hari ini", "text")}
+                        ${createInputField(6, "Petikan Hadits yang memotivasimu hari ini", "text")}
+                        ${createInputField(7, "Kutipan favorit hari ini", "text")}
+                        ${createInputField(8, "Catatanku hari ini", "textarea")}
+                        ${createInputField(9, "Harapanku untuk hari esok", "textarea")}
+                    </div>
+                    <button onclick="saveJournal()" class="w-full bg-emerald-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-emerald-700 transition flex items-center justify-center gap-2 mt-4">
+                        <i data-lucide="check-circle" class="w-5 h-5"></i> Simpan Muhasabah
+                    </button>
+                </div>
+            `;
+            setMood('happy');
+        }
+
+        function createInputField(id, label, type) {
+            const input = type === 'text' 
+                ? `<input type="text" id="q${id}" class="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Tulis di sini...">`
+                : `<textarea id="q${id}" rows="3" class="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Tulis di sini..."></textarea>`;
+            return `<div class="space-y-2">
+                        <label class="block text-sm font-semibold text-slate-600">${label}</label>
+                        ${input}
+                    </div>`;
+        }
+
+        let selectedMood = 'happy';
+        window.setMood = (mood) => {
+            selectedMood = mood;
+            document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`mood-${mood}`);
+            if (activeBtn) activeBtn.classList.add('active');
+        };
+
+        window.saveJournal = async () => {
+            const data = {
+                mood: selectedMood,
+                timestamp: new Date().toISOString(),
+                answers: {}
+            };
+            for(let i=1; i<=9; i++) {
+                data.answers[`q${i}`] = document.getElementById(`q${i}`).value;
+            }
+
+            // Simpan lokal (Selalu dilakukan sebagai backup)
+            const logs = JSON.parse(localStorage.getItem('muhasabah_logs') || '[]');
+            logs.push(data);
+            localStorage.setItem('muhasabah_logs', JSON.stringify(logs));
+
+            // Simpan ke Cloud jika siap
+            if (firebaseReady && db && auth.currentUser) {
+                try {
+                    await addDoc(collection(db, 'artifacts', 'muhasabah-001', 'users', auth.currentUser.uid, 'journals'), {
+                        ...data,
+                        serverTime: serverTimestamp()
+                    });
+                } catch(e) { console.warn("Gagal simpan ke cloud, data tersimpan secara lokal."); }
+            }
+
+            alert("Alhamdulillah, muhasabah hari ini telah tersimpan.");
+            router('history');
+        };
+
+        function renderHistory() {
+            const main = document.getElementById('main-content');
+            const logs = JSON.parse(localStorage.getItem('muhasabah_logs') || '[]');
+            
+            let historyHtml = `
+                <div class="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-bold text-slate-800">Riwayat Muhasabah</h2>
+                        <span class="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-widest">${firebaseReady ? 'Cloud Synced' : 'Offline Mode'}</span>
+                    </div>
+            `;
+
+            if (!isPremium) {
+                historyHtml += `
+                    <div class="premium-locked p-6 rounded-2xl border-2 border-dashed border-slate-200 bg-white text-center">
+                        <div class="premium-overlay rounded-2xl">
+                            <i data-lucide="lock" class="w-10 h-10 text-emerald-600 mb-2"></i>
+                            <h3 class="font-bold text-slate-800">Fitur Premium Dikunci</h3>
+                            <p class="text-xs text-slate-500 px-6 mt-1">Dapatkan akses riwayat bulanan lengkap dengan aktivasi premium.</p>
+                            <button onclick="router('premium')" class="mt-4 bg-emerald-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-md hover:bg-emerald-700 transition">Aktifkan Sekarang</button>
+                        </div>
+                        <div class="opacity-10 pointer-events-none space-y-3">
+                            <div class="h-24 bg-slate-200 rounded-xl"></div>
+                            <div class="h-24 bg-slate-200 rounded-xl"></div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                if (logs.length === 0) {
+                    historyHtml += `<div class="text-center py-20 text-slate-400">
+                        <i data-lucide="book-open" class="w-12 h-12 mx-auto mb-2 opacity-20"></i>
+                        <p>Belum ada catatan muhasabah.</p>
+                    </div>`;
+                } else {
+                    logs.slice().reverse().forEach(log => {
+                        const date = new Date(log.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                        const moodMap = { happy: '😊', sad: '😢', angry: '😡', disappointed: '😞' };
+                        historyHtml += `
+                            <div class="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-emerald-200 transition-colors">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${date}</span>
+                                    <span class="text-xl">${moodMap[log.mood] || '😊'}</span>
+                                </div>
+                                <p class="text-sm font-semibold text-emerald-800 mb-1 line-clamp-1">"${log.answers.q4 || 'No quote'}"</p>
+                                <p class="text-xs text-slate-500 line-clamp-2">${log.answers.q8 || 'Tanpa catatan tambahan.'}</p>
+                            </div>
+                        `;
+                    });
+                }
+            }
+            historyHtml += `</div>`;
+            main.innerHTML = historyHtml;
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function renderPremium() {
+            const main = document.getElementById('main-content');
+            main.innerHTML = `
+                <div class="space-y-6 animate-in zoom-in-95 duration-300">
+                    <div class="bg-gradient-to-br from-emerald-600 to-teal-700 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
+                        <i data-lucide="crown" class="absolute -right-4 -top-4 w-32 h-32 opacity-10"></i>
+                        <h2 class="text-2xl font-bold mb-1">Muhasabah Pro</h2>
+                        <p class="text-emerald-100 text-sm">Investasi untuk ketenangan jiwa dan rekap perkembangan diri.</p>
+                        <div class="mt-6 space-y-3">
+                            <div class="flex items-center gap-3 text-sm"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-300"></i> Akses Riwayat Bulanan</div>
+                            <div class="flex items-center gap-3 text-sm"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-300"></i> Statistik Mood & Grafik</div>
+                            <div class="flex items-center gap-3 text-sm"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-300"></i> Backup Cloud Aman</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i data-lucide="info" class="w-5 h-5 text-emerald-600"></i> Aktivasi:
+                        </h3>
+                        <div class="text-sm text-slate-600 space-y-4">
+                            <p>1. Transfer <b>Rp 50.000,-</b></p>
+                            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                <p class="text-xs text-slate-400 font-bold uppercase mb-1">Bank BRI</p>
+                                <p class="text-xl font-mono font-bold tracking-tighter">68320-1000-988-524</p>
+                                <p class="text-xs text-slate-500">A.N. Indri Yulianti</p>
+                            </div>
+                            <p>2. Kirim bukti transfer:</p>
+                        </div>
+                        <div class="mt-6 space-y-4">
+                            <input type="file" id="proof-file" class="hidden" onchange="handleFile(this)">
+                            <label for="proof-file" class="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 p-4 rounded-xl cursor-pointer hover:bg-emerald-50 transition">
+                                <i data-lucide="image" class="text-slate-400"></i>
+                                <span class="text-sm font-medium text-slate-500" id="file-label">Lampirkan Bukti</span>
+                            </label>
+                            <input type="text" id="sender-name" class="w-full p-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Nama Pengirim">
+                            <button onclick="submitPayment()" class="w-full bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-slate-900 transition">Kirim Konfirmasi</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        window.handleFile = (input) => {
+            if(input.files && input.files[0]) {
+                document.getElementById('file-label').innerText = input.files[0].name;
+            }
+        };
+
+        window.submitPayment = async () => {
+            const name = document.getElementById('sender-name').value;
+            const file = document.getElementById('proof-file').files[0];
+            if(!name || !file) { alert("Data tidak lengkap."); return; }
+
+            if (firebaseReady && db) {
+                try {
+                    await addDoc(collection(db, 'artifacts', 'muhasabah-001', 'public', 'data', 'payments'), {
+                        userId: auth.currentUser.uid,
+                        sender: name,
+                        status: 'pending',
+                        timestamp: serverTimestamp()
+                    });
+                    alert("Terkirim! Kami akan segera memproses.");
+                } catch(e) { alert("Gagal kirim. Coba lagi."); }
+            } else {
+                alert("Mode Demo: Data hanya disimpan sementara di browser.");
+            }
+        };
+
+        window.addEventListener('load', () => {
+            setTimeout(() => window.router('home'), 300);
+        });
+
+    </script>
+</body>
+</html>
