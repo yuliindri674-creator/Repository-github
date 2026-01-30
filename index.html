@@ -61,14 +61,31 @@
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Konfigurasi Firebase - Pastikan API Key benar dari Firebase Console
-        const firebaseConfig = {
-            apiKey: "DD_QyXg41TgJZ_PXKg7dtLeqqXJcQ", // <--- Pastikan kunci ini valid
-            authDomain: "muhasabah-diri-app.firebaseapp.com",
-            projectId: "muhasabah-diri-app",
-            storageBucket: "muhasabah-diri-app.firebasestorage.app",
-            messagingSenderId: "64363224108",
-            appId: "1:64363224108:web:609e0efca3d28d21734589"
-        };
+        // --- FILE KONEKSI FIREBASE UTAMA ---
+// Salin dan tempel bagian ini ke dalam file konfigurasi Firebase di proyek Anda
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// Ini adalah identitas proyek Anda yang sudah benar
+const firebaseConfig = {
+  apiKey: "AIzaSyB1K-DD_QyXg41TgJZ_PXKg7dtLeqqXJcQ",
+  authDomain: "muhasabah-diri-app.firebaseapp.com",
+  projectId: "muhasabah-diri-app",
+  storageBucket: "muhasabah-diri-app.firebasestorage.app",
+  messagingSenderId: "64363224108",
+  appId: "1:64363224108:web:609e0efca3d28d21734589"
+};
+
+// Inisialisasi Firebase
+const app = initializeApp(firebaseConfig);
+
+// Inisialisasi Layanan (Gunakan ini di seluruh aplikasi Anda)
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+console.log("Firebase Muhasabah Diri berhasil terhubung!");
 
         let isPremium = false;
         let db = null;
